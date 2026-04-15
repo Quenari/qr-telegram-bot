@@ -1,6 +1,5 @@
 import os
 import asyncio
-import threading
 import qrcode
 from flask import Flask
 from aiogram import Bot, Dispatcher, types
@@ -12,18 +11,23 @@ from dotenv import load_dotenv
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Создаём Flask приложение (для веб-сервера)
+# Проверка токена
+if not BOT_TOKEN:
+    print("❌ ОШИБКА: BOT_TOKEN не найден!")
+    BOT_TOKEN = "FAKE_TOKEN"
+
+# Создаём Flask приложение
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "Бот работает!"
+    return "✅ QR Code Bot is running!"
 
 @app.route('/health')
 def health():
     return "OK", 200
 
-# === КОД БОТА (ваш старый код, немного адаптированный) ===
+# === КОД БОТА ===
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
@@ -111,20 +115,26 @@ async def generate_qr(message: types.Message):
     
     os.remove(file_path)
 
-# === ЗАПУСК БОТА В ОТДЕЛЬНОМ ПОТОКЕ ===
-def run_bot():
-    """Запускает бота в отдельном потоке"""
-    async def start_bot():
-        await dp.start_polling(bot)
+# === ЗАПУСК ===
+async def main():
+    print("🚀 Бот запускается...")
+    print(f"🤖 Токен: {BOT_TOKEN[:15]}... (проверьте, что он правильный)")
     
-    asyncio.run(start_bot())
+    # Запускаем бота (без потоков)
+    await dp.start_polling(bot)
 
-# === ЗАПУСК ВЕБ-СЕРВЕРА ===
 if __name__ == "__main__":
-    # Запускаем бота в отдельном потоке
+    import threading
+    
+    # Запускаем бота в отдельном потоке с отключёнными сигналами
+    def run_bot():
+        asyncio.run(main())
+    
     bot_thread = threading.Thread(target=run_bot)
+    bot_thread.daemon = True
     bot_thread.start()
     
-    # Запускаем Flask веб-сервер
+    # Запускаем Flask
     port = int(os.environ.get("PORT", 5000))
+    print(f"🌐 Flask сервер запущен на порту {port}")
     app.run(host="0.0.0.0", port=port)
